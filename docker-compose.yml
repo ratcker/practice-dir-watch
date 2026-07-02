@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   compiler:
     build: .
@@ -9,5 +8,4 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    # По умолчанию запускаем утилиту с флагом --help
-    command: ./dir-watch --help
+    command: ./dir-watch 
