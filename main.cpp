@@ -5,6 +5,8 @@
 #include <filesystem>
 #include <fstream>
 #include <getopt.h>
+#include <sstream>
+#include <chrono>
 
 namespace fs = std::filesystem;
 
@@ -25,7 +27,7 @@ std::vector<FileMeta> scan_directory(const std::string& target) {
         }
         for (const auto& entry : fs::recursive_directory_iterator(target)) {
             if (fs::is_regular_file(entry.path())) {//в случае нахождения файла при рекурсивном сканипровании директории
-                if (entry.path().filename() == ".snapshot" || entry.path().filename() == ".changes") {//в случае обнаружения системного файла dir-watch игнорируем его
+                if (entry.path().filename().string() == ".snapshot" || entry.path().filename().string() == ".dir-watch-changes") {//в случае обнаружения системного файла dir-watch игнорируем его
                     continue;
                 }
                 FileMeta meta;//записываем метаданные этого файла
@@ -85,7 +87,7 @@ std::unordered_map<std::string, FileMeta> load_snapshot(const std::string& snaps
     return past_snapshot; // вернем набор метаданных файлов
 }
 
-void compare_snapshots(const std::vector<FileMeta>& current, std::unordered_map<std::string,FileMeta>& past, const std::string& target_path) {
+void compare_snapshots(const std::vector<FileMeta>& current, std::unordered_map<std::string,FileMeta>& past) {
     //Функция для сравнения текущего состояние директории со считанным состоянием из снапшота 
     std::cout << "Compare" << std::endl;
     int new_count = 0, modified_count = 0,deleted_count = 0;
@@ -115,7 +117,7 @@ void compare_snapshots(const std::vector<FileMeta>& current, std::unordered_map<
     std::cout << "Summary: New: " << new_count << ", modified: " << modified_count << ", deleted: " << deleted_count << std::endl;//выведем сводку по сравнению директории со снапшотом
     std::string summary = "New: " + std::to_string(new_count) + ", modified: " + std::to_string(modified_count) + ", deleted: " + std::to_string(deleted_count) + "\n";
     report_data += "------\n"+summary+"------\n";//запишем в конец строки с изменениями summary
-    std::ofstream report_out(target_path+"/.changes");//запишем изменения в файл .changes
+    std::ofstream report_out("/tmp/.dir-watch-changes");//запишем изменения в файл /tmp/.dir-watch-changes
     if (report_out.is_open()) {
         report_out << report_data;
         report_out.close();
@@ -123,10 +125,10 @@ void compare_snapshots(const std::vector<FileMeta>& current, std::unordered_map<
 }
 
 void export_report(const std::string& export_path) {
-    //функция для экспорта отчета по изменениям в директории. сами изменения будут взяты из .changes
-    std::string source_file = "./.changes"; 
-    if (!fs::exists(source_file)) {//если файла .changes не сущетвует, значит снимков состотяния директории еще не создавалось и => предложим пользователю создать первый снимок
-        std::cerr << "Error: Nothing to export. Run --compare to create changes log first time";
+    //функция для экспорта отчета по изменениям в директории. сами изменения будут взяты из /tmp/.dir-watch-changes
+    std::string source_file = "/tmp/.dir-watch-changes"; 
+    if (!fs::exists(source_file)) {//если файла /tmp/.dir-watch-changes не сущетвует, значит снимков состотяния директории еще не создавалось в этой сессии
+        std::cerr << "Error: Nothing to export. Run --compare to create changes log in this session";
         return; 
     }
     std::ifstream in(source_file);
@@ -175,7 +177,7 @@ int main(int argc, char* argv[])
                 std::cout << "for using: dir-watch [options]\nOptions:\n"
                 << " -s, --snapshot <directory>     Create snaphot of directory status\n"
                 << " -c, --compare <directory>      Compare directory with the previous snapshot\n"
-                << " -e, --export <filename>        Create file with this name in ./ with results of compare\n"
+                << " -e, --export <filename>        Create file with this name in ./<filename> with results of compare\n"
                 << " -h, --help                     Show this help message\n";//вывод --help или -h
                 return 0;
             default:
@@ -202,7 +204,7 @@ int main(int argc, char* argv[])
         std::unordered_map<std::string, FileMeta> past_snapshot = load_snapshot(snapshot_file);
         std::cout << "Scanning.." << std::endl;
         std::vector<FileMeta> current_state = scan_directory(target);
-        compare_snapshots(current_state, past_snapshot, target);
+        compare_snapshots(current_state, past_snapshot);
         std::cout << "comparison successfully complete." << std::endl;
     }
     else if (mode == 'e') {//выполнение программы в режиме экспорта отчета по изменениям в директории 
