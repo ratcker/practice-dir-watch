@@ -24,13 +24,11 @@ sudo ./install.sh
 ## Использование
 
 ```
-dir-watch [options]
-
-Options:
-  -s, --snapshot <directory>   Создать снимок состояния каталога
-  -c, --compare <directory>    Сравнить каталог с последним снимком
-  -e, --export <filename>      Выгрузить отчёт последнего сравнения в файл
-  -h, --help                   Показать справку
+for using: dir-watch [options]\nOptions:\n"
+ -s, --snapshot <directory>     Create snaphot of directory status\n
+ -c, --compare <directory>      Compare directory with the previous snapshot\n
+ -e, --export <filename>        Create file with this name in ./<filename> with results of compare\n
+ -h, --help                     Show this help message\n
 ```
 
 ### Примеры
