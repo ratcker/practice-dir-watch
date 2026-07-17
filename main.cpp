@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <sstream>
 #include <chrono>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -27,7 +28,8 @@ std::vector<FileMeta> scan_directory(const std::string& target) {
         }
         for (const auto& entry : fs::recursive_directory_iterator(target)) {
             if (fs::is_regular_file(entry.path())) {//в случае нахождения файла при рекурсивном сканипровании директории
-                if (entry.path().filename().string() == ".snapshot" || entry.path().filename().string() == ".dir-watch-changes") {//в случае обнаружения системного файла dir-watch игнорируем его
+                const std::string filename = entry.path().filename().string();
+                if (filename == ".snapshot" || filename.rfind(".dir-watch-changes-", 0) == 0) {//в случае обнаружения системного файла dir-watch игнорируем его
                     continue;
                 }
                 FileMeta meta;//записываем метаданные этого файла
@@ -117,17 +119,19 @@ void compare_snapshots(const std::vector<FileMeta>& current, std::unordered_map<
     std::cout << "Summary: New: " << new_count << ", modified: " << modified_count << ", deleted: " << deleted_count << std::endl;//выведем сводку по сравнению директории со снапшотом
     std::string summary = "New: " + std::to_string(new_count) + ", modified: " + std::to_string(modified_count) + ", deleted: " + std::to_string(deleted_count) + "\n";
     report_data += "------\n"+summary+"------\n";//запишем в конец строки с изменениями summary
-    std::ofstream report_out("/tmp/.dir-watch-changes");//запишем изменения в файл /tmp/.dir-watch-changes
-    if (report_out.is_open()) {
-        report_out << report_data;
-        report_out.close();
+    const std::string report_path = "/tmp/.dir-watch-changes-" + std::to_string(getuid());
+    std::ofstream report_out(report_path);
+    if (!report_out.is_open()) {
+        std::cerr << "Error: counldn't create report here." << std::endl;
+        return;
     }
+    report_out << report_data;
 }
 
 void export_report(const std::string& export_path) {
-    //функция для экспорта отчета по изменениям в директории. сами изменения будут взяты из /tmp/.dir-watch-changes
-    std::string source_file = "/tmp/.dir-watch-changes"; 
-    if (!fs::exists(source_file)) {//если файла /tmp/.dir-watch-changes не сущетвует, значит снимков состотяния директории еще не создавалось в этой сессии
+    //функция для экспорта отчета по изменениям в директории. сами изменения будут взяты из /tmp/.dir-watch-changes-{uid}
+    std::string source_file = "/tmp/.dir-watch-changes-" + std::to_string(getuid()); 
+    if (!fs::exists(source_file)) {//если файла для отчета не сущетвует, значит сравнение еще не выполнялось в этой сессии
         std::cerr << "Error: Nothing to export. Run --compare to create changes log in this session";
         return; 
     }
