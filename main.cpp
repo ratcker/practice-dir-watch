@@ -26,14 +26,14 @@ std::vector<FileMeta> scan_directory(const std::string& target) {
             std::cerr << "No such path " << target << std::endl;
             return checked; // В случае несуществования директории по такому пути возвращаем пустой вектор 
         }
-        for (const auto& entry : fs::recursive_directory_iterator(target)) {
+        for (const auto& entry : fs::recursive_directory_iterator(fs::canonical(target))) {
             if (fs::is_regular_file(entry.path())) {//в случае нахождения файла при рекурсивном сканипровании директории
                 const std::string filename = entry.path().filename().string();
                 if (filename == ".snapshot" || filename.rfind(".dir-watch-changes-", 0) == 0) {//в случае обнаружения системного файла dir-watch игнорируем его
                     continue;
                 }
                 FileMeta meta;//записываем метаданные этого файла
-                meta.path = entry.path().string();
+                meta.path = fs::weakly_canonical(entry.path()).string();
                 meta.size = fs::file_size(entry.path());
                 auto last_mod_time = fs::last_write_time(entry.path());
                 auto epoch = last_mod_time.time_since_epoch();
@@ -74,9 +74,14 @@ std::unordered_map<std::string, FileMeta> load_snapshot(const std::string& snaps
         if (line.empty()) {
             continue;//пропустим пустые строки
         }
-        std::stringstream ss(line);//работать будем со строковым потоком
         std::string path_part, size_part, time_part;
-        if (std::getline(ss, path_part, '|') && std::getline(ss, size_part, '|') && std::getline(ss, time_part, '|')) {//разобьем строку с метаданными на отдельные части метаданных файла
+        const auto time_separator = line.rfind('|');
+        const auto size_separator = time_separator == std::string::npos || time_separator == 0
+            ? std::string::npos : line.rfind('|', time_separator - 1);
+        if (time_separator != std::string::npos && size_separator != std::string::npos) {//разобьем строку с метаданными на отдельные части метаданных файла
+            path_part = line.substr(0, size_separator);
+            size_part = line.substr(size_separator + 1, time_separator - size_separator - 1);
+            time_part = line.substr(time_separator + 1);
             FileMeta meta;
             meta.path = path_part;
             meta.size = std::stoll(size_part);
