@@ -3,6 +3,7 @@
 ## Установка
 
 ```bash
+sudo dpkg -i dir-watch_1.0.0_amd64.deb
 chmod +x install.sh
 sudo ./install.sh
 ```

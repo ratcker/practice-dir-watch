@@ -1,0 +1,8 @@
+Package: dir-watch
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: ratcker <ratckeryt@gmail.com>
+Depends: libc6 (>= 2.31), libgcc-s1 (>= 3.0), libstdc++6 (>= 10)
+Description: Utility for snapshots and directory comparison
